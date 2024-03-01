@@ -9,7 +9,7 @@ namespace IslandSanctuarySolver
     /// <summary>
     /// Represents a complete list of Presets, thus forming a complete strategy for a full week of Island Sanctuary workshop building.
     /// </summary>
-    public class Strategy
+    public static class Strategy
     {
         #region Public members
 
@@ -27,18 +27,16 @@ namespace IslandSanctuarySolver
             //Total candidates checked so far
             long candidates = 0;
 
-            //Candidates that were better than the last candidate we already showed the user
-            int bestCandidates = -1;
+            //Number of candidates that were better than the last candidate we already showed the user
+            long bestCandidates = -1;
             
             //First preset to combine into a Strategy
             Preset preset1;
             
             Preset[] allPresets = Preset.AllPresets;
 
-            //Best strategy so far
-            Strategy champion = null;
+            //Best strategy cost so far
             long champCost = long.MaxValue;
-            const string champLock = "boogabooga";
 
             //We take an interesting approach here.
             //No inner loop variable can meet or exceed its outer loop's value. This means that early Presets are checked first,
@@ -63,10 +61,11 @@ namespace IslandSanctuarySolver
 
                     Preset preset2 = allPresets[y];
 
+                    Preset preset3 = null;
+
                     //the "mini-champ" is the best Strategy found within this method. It has to beat the main champion (or at least the stale value we pick up here),
                     //and then when we're finished finding the "mini-champ" we see if it beats the current champion. This reduces the amount of time we have to spend
-                    //in a lock{} block.
-                    Preset[] miniChampPresets = new Preset[3];
+                    //in a lock{} block. (It can mean we find too many "better" strategies due to concurrency, but that's a minimal loss.)
                     long miniChampCost = champCost;
                     for (int z = 0; z < y; z++)
                     {
@@ -76,14 +75,11 @@ namespace IslandSanctuarySolver
                             continue;
                         }
 
-                        Preset preset3 = allPresets[z];
+                        preset3 = allPresets[z];
 
                         long newCost = GetCost(stocks, preset1, preset2, preset3);
                         if (newCost < miniChampCost)
                         {
-                            miniChampPresets[0] = preset1;
-                            miniChampPresets[1] = preset2;
-                            miniChampPresets[2] = preset3;
                             miniChampCost = newCost;
                         }
                     }
@@ -98,18 +94,19 @@ namespace IslandSanctuarySolver
                         {
                             form.UpdateCandidateLabel(candidates, bestCandidates);
                         }
+                        //we don't want to bother locking if we didn't find anything possibly useful
                         return;
                     }
 
                     //this, however, *must* be accurate
                     lock (champLock)
                     {
-                        if (champion == null || miniChampCost < champion.Cost)
+                        //concurrency-safe check in case another thread found something even better
+                        if (miniChampCost < champCost)
                         {
                             bestCandidates++;
-                            champion = new Strategy(stocks, miniChampPresets);
-                            champCost = champion.Cost;
-                            form.UpdateStrategyTextBox(champion.ToString());
+                            champCost = miniChampCost;
+                            form.UpdateStrategyTextBox(GetStrategyText(miniChampCost, preset1, preset2, preset3));
                             form.UpdateCandidateLabel(candidates, bestCandidates);
                         }
                     }
@@ -123,32 +120,26 @@ namespace IslandSanctuarySolver
         /// </summary>
         public static void FindBestStrategy1(MainForm form, int[] stocks)
         {
-            //Total candidates checked so far
-            long candidates = 0;
             //Candidates that were better than the last candidate we already showed the user
-            int bestCandidates = -1;
+            long bestCandidates = -1;
             
             Preset[] allPresets = Preset.AllPresets;
-
-            //Best strategy so far
-            Strategy champion = null;
             long champCost = long.MaxValue;
 
             for (int x = 0; x < allPresets.Length; x++)
             {
-                candidates++;
                 long newCost = GetCost(stocks, allPresets[x]);
                 if (newCost < champCost)
                 {
-                    champion = new Strategy(stocks, allPresets[x]);
+                    //Best strategy so far
                     champCost = newCost;
                     bestCandidates++;
-                    form.UpdateStrategyTextBox(champion.ToString());
-                    form.UpdateCandidateLabel(candidates, bestCandidates);
+                    form.UpdateStrategyTextBox(GetStrategyText(newCost, allPresets[x]));
+                    form.UpdateCandidateLabel(x + 1, bestCandidates);
                 }
-                if (x % 100 == 0)
+                else if (x % 100 == 0)
                 {
-                    form.UpdateCandidateLabel(candidates, bestCandidates);
+                    form.UpdateCandidateLabel(x + 1, bestCandidates);
                 }
             }
         }
@@ -168,9 +159,6 @@ namespace IslandSanctuarySolver
             Preset preset1;
             
             Preset[] allPresets = Preset.AllPresets;
-
-            //Best strategy so far
-            Strategy champion = null;
             long champCost = long.MaxValue;
 
             //We take an interesting approach here.
@@ -198,13 +186,12 @@ namespace IslandSanctuarySolver
                     if (newCost < champCost)
                     {
                         bestCandidates++;
-                        champion = new Strategy(stocks, preset1, preset2);
-                        champCost = champion.Cost;
-                        form.UpdateStrategyTextBox(champion.ToString());
+                        //Best strategy so far
+                        champCost = newCost;
+                        form.UpdateStrategyTextBox(GetStrategyText(newCost, preset1, preset2));
                         form.UpdateCandidateLabel(candidates, bestCandidates);
                     }
-
-                    if (y % 100 == 0)
+                    else if (y % 100 == 0)
                     {
                         form.UpdateCandidateLabel(candidates, bestCandidates);
                     }
@@ -228,10 +215,8 @@ namespace IslandSanctuarySolver
             
             Preset[] allPresets = Preset.AllPresets;
 
-            //Best strategy so far
-            Strategy champion = null;
+            //Best strategy cost so far
             long champCost = long.MaxValue;
-            const string champLock = "boogabooga";
 
             //We take an interesting approach here.
             //No inner loop variable can meet or exceed its outer loop's value. This means that early Presets are checked first,
@@ -265,11 +250,11 @@ namespace IslandSanctuarySolver
                         }
 
                         Preset preset3 = allPresets[z];
-                        
+                        Preset preset4 = null;
+
                         //the "mini-champ" is the best Strategy found within this method. It has to beat the main champion (or at least the stale value we pick up here),
                         //and then when we're finished finding the "mini-champ" we see if it beats the current champion. This reduces the amount of time we have to spend
                         //in a lock{} block.
-                        Preset[] miniChampPresets = new Preset[4];
                         long miniChampCost = champCost;
 
                         for (int i = 0; i < z; i++)
@@ -278,14 +263,10 @@ namespace IslandSanctuarySolver
                             {
                                 continue;
                             }
-                            Preset preset4 = allPresets[i];
+                            preset4 = allPresets[i];
                             long newCost = GetCost(stocks, preset1, preset2, preset3, preset4);
                             if (newCost < miniChampCost)
                             {
-                                miniChampPresets[0] = preset1;
-                                miniChampPresets[1] = preset2;
-                                miniChampPresets[2] = preset3;
-                                miniChampPresets[3] = preset4;
                                 miniChampCost = newCost;
                             }
                         }
@@ -306,12 +287,11 @@ namespace IslandSanctuarySolver
                         //this, however, *must* be accurate
                         lock (champLock)
                         {
-                            if (champion == null || miniChampCost < champion.Cost)
+                            if (miniChampCost < champCost)
                             {
                                 bestCandidates++;
-                                champion = new Strategy(stocks, miniChampPresets);
-                                champCost = champion.Cost;
-                                form.UpdateStrategyTextBox(champion.ToString());
+                                champCost = miniChampCost;
+                                form.UpdateStrategyTextBox(GetStrategyText(miniChampCost, preset1, preset2, preset3, preset4));
                                 form.UpdateCandidateLabel(candidates, bestCandidates);
                             }
                         }
@@ -321,57 +301,24 @@ namespace IslandSanctuarySolver
         }
         #endregion
 
-        public override string ToString()
+        public static string GetStrategyText(long cost, params Preset[] presets)
         {
             string output = "";
             int shop = 1;
 
-            foreach (Preset preset in Presets)
+            foreach (Preset preset in presets)
             {
                 output += "Workshop " + shop + ":" + Environment.NewLine + preset.ToString() + Environment.NewLine;
                 shop++;
             }
 
-            output += "Cost: " + Cost;
+            output += "Cost: " + cost;
 
             return output;
         }
         #endregion
 
         #region Private members
-        /// <summary>
-        /// Creates a new Strategy with the specified Presets.
-        /// </summary>
-        /// <param name="stocks">An array representing a complete list of Isleventory stocks.</param>
-        /// <param name="presets">An array of presets this Strategy should contain.</param>
-        private Strategy(int[] stocks, params Preset[] presets)
-        {
-            Stocks = stocks;
-            //shallow copy in case the underlying data structure is modified elsewhere
-            Presets = new Preset[presets.Length];
-            for (int x = 0; x < presets.Length; x++)
-            {
-                Presets[x] = presets[x];
-            }
-            Resources = CalcResources(Presets);
-            Cost = GetCost(Stocks, Presets);
-        }
-
-        /// <summary>
-        /// The Presets that make up the Strategy.
-        /// </summary>
-        private Preset[] Presets;
-
-        /// <summary>
-        /// An array representing a complete list of Isleventory stocks.
-        /// </summary>
-        private int[] Stocks;
-
-        /// <summary>
-        /// An array representation of all of the resource quantities used in this strategy to supply its recipes.
-        /// Uses the values of the Program.Resource enum as indices.
-        /// </summary>
-        private int[] Resources;
 
         /// <summary>
         /// Given the input presets, calculates the total resources used by all of them and outputs them into an array parallel to the ResourceValues array.
@@ -393,8 +340,6 @@ namespace IslandSanctuarySolver
             }
             return output;
         }
-        
-        private long Cost;
 
         private static long GetCost(int[] stocks, params Preset[] presets)
         {
@@ -459,6 +404,11 @@ namespace IslandSanctuarySolver
 
             return minStock;
         }
+
+        /// <summary>
+        /// Just a lock object.
+        /// </summary>
+        private const string champLock = "Y'shtola Rhul";
 
         #endregion
     }

@@ -51,12 +51,12 @@ namespace IslandSanctuarySolver
         /// <summary>
         /// User-entered stocks of items, read from Isleventory.txt.
         /// </summary>
-        int[] Stocks = new int[Program.ResourceValues.Length];
+        private readonly int[] Stocks = new int[Program.ResourceValues.Length];
 
         /// <summary>
         /// Stocks normalized to quantities used in the calculator - i.e., divided by 5. Separate because the existing stocks are still displayed to the user.
         /// </summary>
-        int[] SecretStocks = new int[Program.ResourceValues.Length];
+        private readonly int[] SecretStocks = new int[Program.ResourceValues.Length];
 
         private void Form1_Load(object sender, EventArgs e)
         {
@@ -151,7 +151,7 @@ namespace IslandSanctuarySolver
         {
             if (InvokeRequired)
             {
-                Invoke(new Action(EnableFindStratsButton), new object[] { });
+                _ = Invoke(new Action(EnableFindStratsButton), []);
                 return;
             }
 
@@ -162,18 +162,18 @@ namespace IslandSanctuarySolver
         {
             if (InvokeRequired)
             {
-                Invoke(new Action<string>(UpdateStrategyTextBox), new object[] { text });
+                _ = Invoke(new Action<string>(UpdateStrategyTextBox), new object[] { text });
                 return;
             }
 
             strategyTextBox.Text = text;
         }
 
-        public void UpdateCandidateLabel(long candidates, int bestCandidates)
+        public void UpdateCandidateLabel(long candidates, long bestCandidates)
         {
             if (InvokeRequired)
             {
-                Invoke(new Action<long, int>(UpdateCandidateLabel), new object[] { candidates, bestCandidates });
+                _ = Invoke(new Action<long, long>(UpdateCandidateLabel), new object[] { candidates, bestCandidates });
                 return;
             }
             
@@ -184,7 +184,7 @@ namespace IslandSanctuarySolver
 
         private void findStratsButton_Click(object sender, EventArgs e)
         {
-            Thread strategyThread = new Thread(FindBestStrategy)
+            Thread strategyThread = new(FindBestStrategy)
             {
                 Priority = ThreadPriority.BelowNormal
             };

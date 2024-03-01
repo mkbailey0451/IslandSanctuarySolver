@@ -70,9 +70,7 @@ namespace IslandSanctuarySolver
         /// </summary>
         public int CompareTo(object obj)
         {
-            Preset other = obj as Preset;
-
-            if (other == null)
+            if (!(obj is Preset other))
             {
                 return 0;
             }
@@ -126,7 +124,7 @@ namespace IslandSanctuarySolver
         /// <summary>
         /// A reference to the total stocks in the Isleventory, used to calculate the likely cost of this Recipe.
         /// </summary>
-        private int[] _stocks;
+        private readonly int[] _stocks;
 
         /// <summary>
         /// An array of the integer indices of each recipe used by this Preset.
@@ -256,7 +254,7 @@ namespace IslandSanctuarySolver
         /// A hash containing a prime-factorization representation of created presets, used to avoid creating duplicates.
         /// We use this method because it saves time and memory when creating the preset list (especially compared to a HashSet of Presets).
         /// </summary>
-        private static HashSet<long> presetHash = new HashSet<long>();
+        private static readonly HashSet<long> presetHash = new HashSet<long>();
 
         /// <summary>
         /// Recursive case of GetAllPresets(int[]) and itself. Gets all valid presets beginning with the recipe(s) in inputRecipes, using stocks to determine costs.
@@ -333,7 +331,7 @@ namespace IslandSanctuarySolver
         /// A List of the Recipes used in this preset. Not to be confused with _recipesUsed, which uses array indices to represent the same thing as a speed optimization.
         /// This object is still useful, however, when we are creating and evaluating recipes, so it stays.
         /// </summary>
-        private List<Recipe> _recipes;
+        private readonly List<Recipe> _recipes;
 
         /// <summary>
         /// The total number of hours consumed by this Preset. Cannot be memoized because the value changes during preset creation.
